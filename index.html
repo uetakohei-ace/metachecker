@@ -411,6 +411,9 @@
   .drawer-close{display:none}
   .m-only{display:none}
   .iphone.bare .btn-side,.iphone.bare .glare{display:none}
+  /* mobile: mock screen = real viewport (edge to edge) */
+  .iphone.mfill{position:absolute;inset:0;box-shadow:none !important;background:#000;border-radius:0}
+  .screen.mfill{position:absolute;inset:0;border-radius:0}
   @media (max-width:900px){
     .app{display:block}
     .m-header{position:fixed;top:0;left:0;right:0;z-index:80;display:flex;align-items:center;gap:10px;
@@ -439,7 +442,8 @@
     .zoom,.stage-top,.nav-dots,.arrow{display:none}
     #devices{display:none}
     .m-only{display:block}
-    .iphone{box-shadow:0 12px 36px -12px rgba(0,0,0,.7) !important}
+    .stage::before{display:none}
+    .device-wrap{position:absolute !important;inset:0;transform:none !important}
     input{font-size:16px !important} /* iOSのフォーカス時自動ズーム防止 */
   }
   /* ===== password gate ===== */
@@ -800,6 +804,7 @@ function autoScale(){
   return Math.min(availH/frameH, availW/frameW, 1);
 }
 function renderZoom(){
+  if(isMobile()){ $('#deviceWrap').style.transform='none'; $('#zVal').textContent='100%'; return; }
   const s=state.zoom||autoScale();
   $('#deviceWrap').style.transform=`scale(${s})`;
   $('#zVal').textContent=Math.round(s*100)+'%';
@@ -812,21 +817,30 @@ function render(){
   $('#devName').textContent=d.name;
   $('#placeName').textContent=p.short;
 
-  const bezel=isMobile()?0:12;
+  const mobile=isMobile();
+  const bezel=mobile?0:12;
   const W=d.w, H=d.h;
   const wrap=$('#deviceWrap');
 
-  // build phone shell (bezel-less "bare" screen on mobile for a bigger preview)
-  wrap.innerHTML=`
-    <div class="iphone${bezel?'':' bare'}" style="width:${W+bezel*2}px;height:${H+bezel*2}px;border-radius:${d.br+bezel}px">
-      <div class="btn-side vol" style="top:${H*0.18}px;height:${H*0.06}px"></div>
-      <div class="btn-side ${d.type==='island'?'act':'vol'}" style="top:${H*0.28}px;height:${H*0.035}px"></div>
-      <div class="btn-side pwr" style="top:${H*0.24}px;height:${H*0.10}px"></div>
-      <div class="screen" style="left:${bezel}px;top:${bezel}px;width:${W}px;height:${H}px;border-radius:${d.br}px">
-        <div class="content" id="screenContent"></div>
-      </div>
-      <div class="glare"></div>
-    </div>`;
+  // build phone shell
+  if(mobile){
+    // mock screen = real viewport（お使いの端末の画面いっぱい・実アプリの見え方）
+    wrap.innerHTML=`
+      <div class="iphone bare mfill">
+        <div class="screen mfill"><div class="content" id="screenContent"></div></div>
+      </div>`;
+  }else{
+    wrap.innerHTML=`
+      <div class="iphone" style="width:${W+bezel*2}px;height:${H+bezel*2}px;border-radius:${d.br+bezel}px">
+        <div class="btn-side vol" style="top:${H*0.18}px;height:${H*0.06}px"></div>
+        <div class="btn-side ${d.type==='island'?'act':'vol'}" style="top:${H*0.28}px;height:${H*0.035}px"></div>
+        <div class="btn-side pwr" style="top:${H*0.24}px;height:${H*0.10}px"></div>
+        <div class="screen" style="left:${bezel}px;top:${bezel}px;width:${W}px;height:${H}px;border-radius:${d.br}px">
+          <div class="content" id="screenContent"></div>
+        </div>
+        <div class="glare"></div>
+      </div>`;
+  }
 
   const screen=wrap.querySelector('.screen');
   const content=wrap.querySelector('#screenContent');
@@ -868,8 +882,8 @@ function render(){
     }
   }
 
-  // island / notch (always shown)
-  if(state.overlays.island && d.type!=='home'){
+  // island / notch (desktop mock only; on real phone the notch is outside the browser viewport)
+  if(state.overlays.island && d.type!=='home' && !mobile){
     const isl=document.createElement('div');
     isl.className='island '+(d.type==='island'?'di':'notch');
     isl.style.width=d.islandW+'px';
@@ -882,11 +896,13 @@ function render(){
   if(!demo){
     // safe zones (only for 9:16 placements meaningfully)
     if(state.overlays.safe && (p.top||p.bottom||p.side)){
-      if(p.top>0) screen.appendChild(zone('top',`height:${(p.top*H).toFixed(0)}px`,`上部セーフ ${Math.round(p.top*100)}%`));
-      if(p.bottom>0) screen.appendChild(zone('bottom',`height:${(p.bottom*H).toFixed(0)}px`,`下部セーフ ${Math.round(p.bottom*100)}% (キャプション/CTA)`));
+      const hv=t=>mobile?`height:${(t*100)}%`:`height:${(t*H).toFixed(0)}px`;
+      const wv=s=>mobile?`width:${(s*100)}%`:`width:${(s*W).toFixed(0)}px`;
+      if(p.top>0) screen.appendChild(zone('top',hv(p.top),`上部セーフ ${Math.round(p.top*100)}%`));
+      if(p.bottom>0) screen.appendChild(zone('bottom',hv(p.bottom),`下部セーフ ${Math.round(p.bottom*100)}% (キャプション/CTA)`));
       if(p.side>0){
-        screen.appendChild(zone('left',`width:${(p.side*W).toFixed(0)}px`,''));
-        screen.appendChild(zone('right',`width:${(p.side*W).toFixed(0)}px`,`左右${Math.round(p.side*100)}%`));
+        screen.appendChild(zone('left',wv(p.side),''));
+        screen.appendChild(zone('right',wv(p.side),`左右${Math.round(p.side*100)}%`));
       }
     }
     // SNS UI preview overlay (realistic IG chrome)
