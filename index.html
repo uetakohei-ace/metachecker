@@ -404,6 +404,40 @@
   .arrow:hover{color:var(--txt);border-color:var(--line-2)}
   .arrow.l{left:24px}.arrow.r{right:24px}
   .arrow:disabled{opacity:0;pointer-events:none}
+
+  /* ================= MOBILE (≤900px) ================= */
+  .m-header{display:none}
+  .backdrop{display:none}
+  .drawer-close{display:none}
+  @media (max-width:900px){
+    .app{display:block}
+    .m-header{position:fixed;top:0;left:0;right:0;z-index:80;display:flex;align-items:center;gap:10px;
+      padding:calc(8px + env(safe-area-inset-top)) 12px 8px;
+      background:var(--panel);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-bottom:1px solid var(--line)}
+    .m-header .mh-btn{height:38px;min-width:38px;padding:0 12px;border-radius:11px;border:1px solid var(--line);
+      background:rgba(255,255,255,.03);color:var(--txt);font-size:15px;display:flex;align-items:center;justify-content:center;gap:6px;
+      font-family:var(--body);cursor:pointer}
+    .m-header .mh-btn small{font-size:11px;color:var(--txt-dim)}
+    .m-header .mh-title{font-family:var(--disp);font-weight:800;font-size:15px;letter-spacing:-.02em;white-space:nowrap}
+    .m-header .mh-title .dot{color:var(--accent)}
+    .m-header .sp{flex:1}
+    .stage{position:fixed;left:0;right:0;bottom:0;top:calc(54px + env(safe-area-inset-top))}
+    .panel.left,.panel.right{position:fixed;top:0;bottom:0;z-index:90;width:min(330px,88vw);
+      transition:transform .28s cubic-bezier(.4,0,.2,1);background:var(--panel-solid)}
+    .panel.left{left:0;transform:translateX(-102%);border-right:1px solid var(--line-2)}
+    .panel.right{right:0;transform:translateX(102%);border-left:1px solid var(--line-2)}
+    .panel.open{transform:none}
+    .backdrop{display:block;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:85;opacity:0;pointer-events:none;transition:opacity .25s}
+    .backdrop.show{opacity:1;pointer-events:auto}
+    .brand{position:relative}
+    .drawer-close{display:flex;position:absolute;top:16px;right:14px;width:32px;height:32px;border-radius:9px;
+      border:1px solid var(--line);background:transparent;color:var(--txt-dim);font-size:15px;align-items:center;justify-content:center;cursor:pointer}
+    .arrow{width:34px;height:34px}
+    .arrow.l{left:8px}.arrow.r{right:8px}
+    .zoom{bottom:calc(10px + env(safe-area-inset-bottom))}
+    .stage-top{padding:10px 12px}
+    input{font-size:16px !important} /* iOSのフォーカス時自動ズーム防止 */
+  }
   /* ===== password gate ===== */
   #gate{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:24px;
     background:radial-gradient(1000px 600px at 70% -10%,rgba(255,92,56,.10),transparent 60%),var(--bg);font-family:var(--body);color:var(--txt)}
@@ -464,6 +498,13 @@
   });
 })();
 </script>
+<header class="m-header">
+  <button class="mh-btn" id="mSettings">☰ <small>設定</small></button>
+  <div class="mh-title">Creative Stage<span class="dot">.</span></div>
+  <span class="sp"></span>
+  <button class="mh-btn" id="mCheck">☑ <small>チェック</small></button>
+</header>
+<div class="backdrop" id="backdrop"></div>
 <div class="app" id="app">
 
   <!-- ===== LEFT ===== -->
@@ -471,6 +512,7 @@
     <div class="brand">
       <h1>Creative&nbsp;Stage<span class="dot">.</span></h1>
       <p>iPhone Mockup Studio</p>
+      <button class="drawer-close" data-close>✕</button>
     </div>
     <div class="panel-scroll">
 
@@ -550,6 +592,7 @@
     <div class="brand">
       <h1 style="font-size:15px">Meta ガイドライン<span class="dot">.</span></h1>
       <p>Compliance Check</p>
+      <button class="drawer-close" data-close>✕</button>
     </div>
     <div class="panel-scroll" id="checkPanel">
       <div class="no-data"><div class="big">◎</div>クリエイティブを読み込むと<br>自動でチェックします。</div>
@@ -603,7 +646,7 @@ function buildDevices(){
     const b=document.createElement('button');
     b.className='chip'+(d.id===state.device?' active':'');
     b.innerHTML=`<span class="ph"></span>${d.name}<span class="res">${d.w}×${d.h}</span>`;
-    b.onclick=()=>{state.device=d.id;state.zoom=null;buildDevices();render();};
+    b.onclick=()=>{state.device=d.id;state.zoom=null;buildDevices();render();mClose();};
     el.appendChild(b);
   });
 }
@@ -616,7 +659,7 @@ function buildPlacement(){
     b.onclick=()=>{
       state.placement=k;
       if(k==='lp'){ setFit('scroll'); state.overlays.ui=true; }
-      syncUiToggle(); buildPlacement(); render();
+      syncUiToggle(); buildPlacement(); render(); mClose();
     };
     el.appendChild(b);
   });
@@ -706,8 +749,8 @@ function buildCreatives(){
                   c.kind==='video' ? `<video class="thumb" src="${c.url}" muted></video>` :
                   `<div class="thumb" style="display:flex;align-items:center;justify-content:center;color:var(--txt-faint);font-size:9px;font-family:var(--mono)">HTML</div>`;
     row.innerHTML=`${thumb}<div class="meta"><div class="nm">${c.name}</div><div class="ty">${c.kind}${c.w?` · ${c.w}×${c.h}`:''}</div></div><div class="del">×</div>`;
-    row.querySelector('.meta').onclick=()=>{state.active=i;buildCreatives();render();};
-    row.querySelector('.thumb').onclick=()=>{state.active=i;buildCreatives();render();};
+    row.querySelector('.meta').onclick=()=>{state.active=i;buildCreatives();render();mClose();};
+    row.querySelector('.thumb').onclick=()=>{state.active=i;buildCreatives();render();mClose();};
     row.querySelector('.del').onclick=(e)=>{e.stopPropagation();state.creatives.splice(i,1);if(state.active>=state.creatives.length)state.active=Math.max(0,state.creatives.length-1);buildCreatives();render();};
     el.appendChild(row);
   });
@@ -721,7 +764,7 @@ window.addEventListener('dragover',e=>e.preventDefault());
 window.addEventListener('drop',e=>e.preventDefault());
 
 $('#pickBtn').onclick=()=>$('#filePicker').click();
-$('#filePicker').onchange=e=>{ if(e.target.files.length)addFiles(e.target.files); e.target.value=''; };
+$('#filePicker').onchange=e=>{ if(e.target.files.length){addFiles(e.target.files);mClose();} e.target.value=''; };
 
 $('#urlGo').onclick=loadUrl;
 $('#urlInput').addEventListener('keydown',e=>{if(e.key==='Enter')loadUrl();});
@@ -742,7 +785,8 @@ $('#zOut').onclick=()=>{state.zoom=Math.max(.2,(state.zoom||autoScale())-.1);ren
 $('#zFit').onclick=()=>{state.zoom=null;renderZoom();};
 function autoScale(){
   const d=DEVICES.find(x=>x.id===state.device);
-  const availH=stage.clientHeight-120, availW=stage.clientWidth-120;
+  const m=window.matchMedia('(max-width:900px)').matches;
+  const availH=stage.clientHeight-(m?96:120), availW=stage.clientWidth-(m?24:120);
   const frameW=d.w+24, frameH=d.h+24;
   return Math.min(availH/frameH, availW/frameW, 1);
 }
@@ -1255,6 +1299,16 @@ window.addEventListener('keydown',e=>{
   if(e.key==='ArrowRight')$('#next').click();
   if(e.key==='ArrowLeft')$('#prev').click();
 });
+
+/* mobile drawers */
+const mMQ=window.matchMedia('(max-width:900px)');
+function openDrawer(side){ closeDrawers(); document.querySelector('.panel.'+side).classList.add('open'); $('#backdrop').classList.add('show'); }
+function closeDrawers(){ document.querySelectorAll('.panel.open').forEach(p=>p.classList.remove('open')); $('#backdrop').classList.remove('show'); }
+function mClose(){ if(mMQ.matches) closeDrawers(); }
+$('#mSettings').onclick=()=>openDrawer('left');
+$('#mCheck').onclick=()=>openDrawer('right');
+$('#backdrop').onclick=closeDrawers;
+document.querySelectorAll('.drawer-close').forEach(b=>b.onclick=closeDrawers);
 
 /* init */
 buildDevices(); buildPlacement(); syncUiToggle(); applyModeUI(); buildCreatives(); render();
