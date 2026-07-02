@@ -409,6 +409,8 @@
   .m-header{display:none}
   .backdrop{display:none}
   .drawer-close{display:none}
+  .m-only{display:none}
+  .iphone.bare .btn-side,.iphone.bare .glare{display:none}
   @media (max-width:900px){
     .app{display:block}
     .m-header{position:fixed;top:0;left:0;right:0;z-index:80;display:flex;align-items:center;gap:10px;
@@ -434,8 +436,10 @@
       border:1px solid var(--line);background:transparent;color:var(--txt-dim);font-size:15px;align-items:center;justify-content:center;cursor:pointer}
     .arrow{width:34px;height:34px}
     .arrow.l{left:8px}.arrow.r{right:8px}
-    .zoom{bottom:calc(10px + env(safe-area-inset-bottom))}
-    .stage-top{padding:10px 12px}
+    .zoom,.stage-top,.nav-dots,.arrow{display:none}
+    #devices{display:none}
+    .m-only{display:block}
+    .iphone{box-shadow:0 12px 36px -12px rgba(0,0,0,.7) !important}
     input{font-size:16px !important} /* iOSのフォーカス時自動ズーム防止 */
   }
   /* ===== password gate ===== */
@@ -524,9 +528,10 @@
         </div>
       </div>
 
-      <div class="group">
+      <div class="group" id="grp-device">
         <div class="label">Device</div>
         <div class="devices" id="devices"></div>
+        <p class="m-only empty-note" style="margin-top:2px">スマホ表示中は、お使いの画面サイズに合わせて自動でフィット表示します（機種切替はPC版で利用できます）。</p>
       </div>
 
       <div class="group">
@@ -783,10 +788,14 @@ $('#next').onclick=()=>{if(state.active<state.creatives.length-1){state.active++
 $('#zIn').onclick=()=>{state.zoom=(state.zoom||autoScale())+.1;renderZoom();};
 $('#zOut').onclick=()=>{state.zoom=Math.max(.2,(state.zoom||autoScale())-.1);renderZoom();};
 $('#zFit').onclick=()=>{state.zoom=null;renderZoom();};
+function isMobile(){ return window.matchMedia('(max-width:900px)').matches; }
 function autoScale(){
   const d=DEVICES.find(x=>x.id===state.device);
-  const m=window.matchMedia('(max-width:900px)').matches;
-  const availH=stage.clientHeight-(m?96:120), availW=stage.clientWidth-(m?24:120);
+  if(isMobile()){
+    // no bezel on mobile → fit the bare screen as large as possible
+    return Math.min((stage.clientWidth-12)/d.w, (stage.clientHeight-24)/d.h, 2);
+  }
+  const availH=stage.clientHeight-120, availW=stage.clientWidth-120;
   const frameW=d.w+24, frameH=d.h+24;
   return Math.min(availH/frameH, availW/frameW, 1);
 }
@@ -803,13 +812,13 @@ function render(){
   $('#devName').textContent=d.name;
   $('#placeName').textContent=p.short;
 
-  const bezel=12;
+  const bezel=isMobile()?0:12;
   const W=d.w, H=d.h;
   const wrap=$('#deviceWrap');
 
-  // build phone shell
+  // build phone shell (bezel-less "bare" screen on mobile for a bigger preview)
   wrap.innerHTML=`
-    <div class="iphone" style="width:${W+bezel*2}px;height:${H+bezel*2}px;border-radius:${d.br+bezel}px">
+    <div class="iphone${bezel?'':' bare'}" style="width:${W+bezel*2}px;height:${H+bezel*2}px;border-radius:${d.br+bezel}px">
       <div class="btn-side vol" style="top:${H*0.18}px;height:${H*0.06}px"></div>
       <div class="btn-side ${d.type==='island'?'act':'vol'}" style="top:${H*0.28}px;height:${H*0.035}px"></div>
       <div class="btn-side pwr" style="top:${H*0.24}px;height:${H*0.10}px"></div>
@@ -1292,7 +1301,12 @@ function ratioStr2(r){
 }
 
 /* resize re-fit */
-let rt; window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{if(state.zoom===null)renderZoom();},120);});
+let rt, wasMobile=isMobile();
+window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{
+  const m=isMobile();
+  if(m!==wasMobile){ wasMobile=m; render(); }   // crossing breakpoint: rebuild (bezel changes)
+  else if(state.zoom===null) renderZoom();       // same mode (e.g. mobile URL-bar): just refit
+},150);});
 
 /* keyboard nav */
 window.addEventListener('keydown',e=>{
